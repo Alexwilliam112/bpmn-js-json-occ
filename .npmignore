@@ -1,0 +1,12 @@
+# .npmignore
+node_modules
+__tests__
+html-report
+coverage
+.gitignore
+src
+src/*
+db
+.env
+docs/
+*.tgz
