@@ -38,7 +38,8 @@
   },
   "homepage": "https://github.com/Alexwilliam112/bpmn-js-json-occ#readme",
   "dependencies": {
-    "bpmn-moddle": "^10.0.0"
+    "bpmn-moddle": "^10.0.0",
+    "tslib": "^2.8.1"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.0",
