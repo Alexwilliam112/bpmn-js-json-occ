@@ -10,3 +10,7 @@ db
 .env
 docs/
 *.tgz
+*.log
+jest.config.js
+babel.config.js
+rollup.config.js

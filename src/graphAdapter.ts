@@ -1,7 +1,9 @@
+// @ts-ignore
 import { BpmnModdle } from "bpmn-moddle";
+import { EnrichedGraph, BPMNDI } from "./types.js";
 
-function extractMetadata(element) {
-  const metadata = {};
+function extractMetadata(element: any): Record<string, any> {
+  const metadata: Record<string, any> = {};
 
   if (element.text !== undefined) {
     metadata.text = element.text;
@@ -11,20 +13,20 @@ function extractMetadata(element) {
   }
 
   if (element.extensionElements && element.extensionElements.values) {
-    element.extensionElements.values.forEach((ext) => {
+    element.extensionElements.values.forEach((ext: any) => {
       const extType = ext.$type;
       if (!metadata[extType]) metadata[extType] = [];
       const cleanExt = { ...ext };
-      delete cleanExt.$parent;
-      delete cleanExt.$type;
+      delete (cleanExt as any).$parent;
+      delete (cleanExt as any).$type;
       metadata[extType].push(cleanExt);
     });
   }
   return metadata;
 }
 
-function buildDiLookupMap(diagrams) {
-  const diMap = {};
+function buildDiLookupMap(diagrams: any[]): Record<string, BPMNDI> {
+  const diMap: Record<string, BPMNDI> = {};
   if (!diagrams || diagrams.length === 0) return diMap;
 
   diagrams.forEach((diagram) => {
@@ -33,7 +35,7 @@ function buildDiLookupMap(diagrams) {
 
     const planeElementId = plane.bpmnElement ? plane.bpmnElement.id : null;
 
-    plane.planeElement.forEach((diElem) => {
+    plane.planeElement.forEach((diElem: any) => {
       if (!diElem.bpmnElement) return;
       const targetId = diElem.bpmnElement.id;
 
@@ -54,7 +56,7 @@ function buildDiLookupMap(diagrams) {
       } else if (diElem.$type === "bpmndi:BPMNEdge") {
         diMap[targetId] = {
           plane_id: planeElementId,
-          waypoints: (diElem.waypoint || []).map((wp) => ({
+          waypoints: (diElem.waypoint || []).map((wp: any) => ({
             x: wp.x,
             y: wp.y,
           })),
@@ -66,11 +68,13 @@ function buildDiLookupMap(diagrams) {
   return diMap;
 }
 
-export async function transformXmlToJsonMap(xmlString) {
+export async function transformXmlToJsonMap(
+  xmlString: string,
+): Promise<EnrichedGraph> {
   const moddle = new BpmnModdle();
   try {
     const { rootElement: definitions } = await moddle.fromXML(xmlString);
-    const enrichedGraph = {
+    const enrichedGraph: EnrichedGraph = {
       ids: definitions.id || `Definitions_${Date.now()}`,
       current_version: "v1",
       name: definitions.name || "BPMN Document",
@@ -86,12 +90,12 @@ export async function transformXmlToJsonMap(xmlString) {
     const rootElements = definitions.rootElements || [];
 
     let rootProcess = rootElements.find(
-      (el) => el.$type === "bpmn:Collaboration",
+      (el: any) => el.$type === "bpmn:Collaboration",
     );
     let isCollaboration = true;
 
     if (!rootProcess) {
-      rootProcess = rootElements.find((el) => el.$type === "bpmn:Process");
+      rootProcess = rootElements.find((el: any) => el.$type === "bpmn:Process");
       isCollaboration = false;
     }
 
@@ -113,7 +117,7 @@ export async function transformXmlToJsonMap(xmlString) {
       }
     }
 
-    const processFlowElements = (elements, parentId) => {
+    const processFlowElements = (elements: any[], parentId: string | null) => {
       if (!elements) return;
       elements.forEach((element) => {
         const metadata = extractMetadata(element);
@@ -156,13 +160,15 @@ export async function transformXmlToJsonMap(xmlString) {
       });
     };
 
-    const processLanes = (laneSets, parentId) => {
+    const processLanes = (laneSets: any[], parentId: string | null) => {
       if (!laneSets) return;
-      laneSets.forEach((laneSet) => {
+      laneSets.forEach((laneSet: any) => {
         if (!laneSet.lanes) return;
-        laneSet.lanes.forEach((lane) => {
+        laneSet.lanes.forEach((lane: any) => {
           const di = diMap[lane.id] || {};
-          const flowNodeRefIds = (lane.flowNodeRef || []).map((ref) => ref.id);
+          const flowNodeRefIds = (lane.flowNodeRef || []).map(
+            (ref: any) => ref.id,
+          );
 
           enrichedGraph.lanes[lane.id] = {
             ids: lane.id,
@@ -189,8 +195,8 @@ export async function transformXmlToJsonMap(xmlString) {
         processFlowElements(rootProcess.artifacts, rootProcess.id);
       }
       rootElements
-        .filter((el) => el.$type === "bpmn:Process")
-        .forEach((proc) => {
+        .filter((el: any) => el.$type === "bpmn:Process")
+        .forEach((proc: any) => {
           if (proc.flowElements)
             processFlowElements(proc.flowElements, rootProcess.id);
           if (proc.artifacts)
@@ -213,7 +219,11 @@ export async function transformXmlToJsonMap(xmlString) {
   }
 }
 
-function injectMetadata(element, metadata, moddle) {
+function injectMetadata(
+  element: any,
+  metadata: Record<string, any>,
+  moddle: any,
+) {
   if (!metadata || Object.keys(metadata).length === 0) return;
 
   const extensionElements = moddle.create("bpmn:ExtensionElements", {
@@ -236,7 +246,9 @@ function injectMetadata(element, metadata, moddle) {
   if (hasExtensions) element.extensionElements = extensionElements;
 }
 
-export async function transformJsonMapToXml(jsonMap) {
+export async function transformJsonMapToXml(
+  jsonMap: EnrichedGraph,
+): Promise<string> {
   const moddle = new BpmnModdle();
   const definitions = moddle.create("bpmn:Definitions", {
     id: jsonMap.ids || `Definitions_${Date.now()}`,
@@ -251,8 +263,8 @@ export async function transformJsonMapToXml(jsonMap) {
   const underlyingProcessName =
     jsonMap.underlying_process_name || "Main Workflow";
 
-  let rootSemanticElement;
-  let defaultProcessForCollaboration;
+  let rootSemanticElement: any;
+  let defaultProcessForCollaboration: any;
 
   if (isCollaboration) {
     rootSemanticElement = moddle.create("bpmn:Collaboration", {
@@ -275,14 +287,16 @@ export async function transformJsonMapToXml(jsonMap) {
 
   definitions.get("rootElements").push(rootSemanticElement);
 
-  const elementRegistry = { [processId]: rootSemanticElement };
+  const elementRegistry: Record<string, any> = {
+    [processId]: rootSemanticElement,
+  };
   if (defaultProcessForCollaboration) {
     elementRegistry["_defaultProcess"] = defaultProcessForCollaboration;
   }
 
-  const planes = {};
+  const planes: Record<string, any> = {};
 
-  function getOrCreatePlane(bpmnElementId) {
+  function getOrCreatePlane(bpmnElementId: string) {
     if (!planes[bpmnElementId]) {
       const semanticRef = elementRegistry[bpmnElementId] || rootSemanticElement;
       const plane = moddle.create("bpmndi:BPMNPlane", {
@@ -302,7 +316,7 @@ export async function transformJsonMapToXml(jsonMap) {
   getOrCreatePlane(processId);
 
   Object.values(jsonMap.nodes || {}).forEach((node) => {
-    let props = { id: node.ids, name: node.name || undefined };
+    let props: any = { id: node.ids, name: node.name || undefined };
 
     if (node.type === "bpmn:Participant") {
       props.processRef = defaultProcessForCollaboration || undefined;
@@ -353,7 +367,7 @@ export async function transformJsonMapToXml(jsonMap) {
     }
   });
 
-  const laneSetsMap = {};
+  const laneSetsMap: Record<string, any> = {};
 
   Object.values(jsonMap.lanes || {}).forEach((laneData) => {
     const laneProps = { id: laneData.ids, name: laneData.name || undefined };
@@ -398,7 +412,7 @@ export async function transformJsonMapToXml(jsonMap) {
       height: di.height ?? 80,
     });
 
-    const shapeProps = {
+    const shapeProps: any = {
       id: `${node.ids}_di`,
       bpmnElement: bpmnElement,
       bounds: bounds,
@@ -435,7 +449,7 @@ export async function transformJsonMapToXml(jsonMap) {
       height: di.height ?? 80,
     });
 
-    const shapeProps = {
+    const shapeProps: any = {
       id: `${laneData.ids}_di`,
       bpmnElement: bpmnElement,
       bounds: bounds,
@@ -452,8 +466,8 @@ export async function transformJsonMapToXml(jsonMap) {
   });
 
   Object.values(jsonMap.edges || {}).forEach((edge) => {
-    const sourceRef = elementRegistry[edge.source_id];
-    const targetRef = elementRegistry[edge.target_id];
+    const sourceRef = elementRegistry[edge.source_id!];
+    const targetRef = elementRegistry[edge.target_id!];
 
     if (!sourceRef || !targetRef) {
       console.warn(
@@ -462,7 +476,7 @@ export async function transformJsonMapToXml(jsonMap) {
       return;
     }
 
-    const seqFlowParams = {
+    const seqFlowParams: any = {
       id: edge.ids,
       name: edge.name || undefined,
       sourceRef,
@@ -516,8 +530,8 @@ export async function transformJsonMapToXml(jsonMap) {
     const planeId = di.plane_id || edge.parent_id || processId;
     const targetPlane = getOrCreatePlane(planeId);
 
-    if (di.waypoints?.length > 0) {
-      const waypoints = di.waypoints.map((wp) =>
+    if (di.waypoints && di.waypoints.length > 0) {
+      const waypoints = di.waypoints.map((wp: { x: number; y: number }) =>
         moddle.create("dc:Point", { x: wp.x, y: wp.y }),
       );
       const diEdge = moddle.create("bpmndi:BPMNEdge", {
